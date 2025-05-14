@@ -4,23 +4,30 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.io.*;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 
 public class TaskPanel extends JPanel {
     private DefaultListModel<Task> taskListModel = new DefaultListModel<>();
     private JList<Task> taskList = new JList<>(taskListModel);
-    private JTextField taskField = new JTextField(20);
+    private JTextField taskField = new JTextField(15);
+    private JTextField deadlineField = new JTextField(10); // format: yyyy-MM-dd
     private JButton addButton = new JButton("Dodaj zadanie");
     private JButton removeButton = new JButton("Usuń zaznaczone");
     private JButton toggleButton = new JButton("Zmień status");
     private JButton saveButton = new JButton("Zapisz do pliku");
     private JButton loadButton = new JButton("Wczytaj z pliku");
+    private DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
     public TaskPanel() {
         setLayout(new BorderLayout());
 
         JPanel inputPanel = new JPanel();
+        inputPanel.add(new JLabel("Zadanie:"));
         inputPanel.add(taskField);
+        inputPanel.add(new JLabel("Deadline (yyyy-MM-dd):"));
+        inputPanel.add(deadlineField);
         inputPanel.add(addButton);
 
         JPanel actionPanel = new JPanel();
@@ -41,12 +48,20 @@ public class TaskPanel extends JPanel {
     }
 
     private void addTask() {
-        String text = taskField.getText().trim();
-        if (!text.isEmpty()) {
-            Task task = new Task(text);
-            taskListModel.addElement(task);
-            taskField.setText("");
-            System.out.println("[TASK] Dodano zadanie: " + text);
+        String description = taskField.getText().trim();
+        String deadlineText = deadlineField.getText().trim();
+
+        if (!description.isEmpty() && !deadlineText.isEmpty()) {
+            try {
+                LocalDate deadline = LocalDate.parse(deadlineText, formatter);
+                Task task = new Task(description, deadline);
+                taskListModel.addElement(task);
+                taskField.setText("");
+                deadlineField.setText("");
+                System.out.println("[TASK] Dodano zadanie: " + description + " z terminem: " + deadline);
+            } catch (Exception e) {
+                JOptionPane.showMessageDialog(this, "Błędny format daty. Użyj formatu: yyyy-mm-dd.");
+            }
         }
     }
 
@@ -76,7 +91,7 @@ public class TaskPanel extends JPanel {
             try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
                 for (int i = 0; i < taskListModel.size(); i++) {
                     Task task = taskListModel.get(i);
-                    writer.write(task.isCompleted() + ";" + task.getDescription());
+                    writer.write(task.isCompleted() + ";" + task.getDescription() + ";" + task.getDeadline().format(formatter));
                     writer.newLine();
                 }
                 System.out.println("[TASK] Zapisano zadania do pliku: " + file.getAbsolutePath());
@@ -94,9 +109,9 @@ public class TaskPanel extends JPanel {
             try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
                 String line;
                 while ((line = reader.readLine()) != null) {
-                    String[] parts = line.split(";", 2);
-                    if (parts.length == 2) {
-                        Task task = new Task(parts[1]);
+                    String[] parts = line.split(";", 3);
+                    if (parts.length == 3) {
+                        Task task = new Task(parts[1], LocalDate.parse(parts[2], formatter));
                         task.setCompleted(Boolean.parseBoolean(parts[0]));
                         taskListModel.addElement(task);
                     }
@@ -108,3 +123,4 @@ public class TaskPanel extends JPanel {
         }
     }
 }
+
